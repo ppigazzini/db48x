@@ -471,6 +471,7 @@ QMAKE_opt = release
 QMAKE_release = release
 QMAKE_debug = debug
 QMAKEFILE=sim/$(NAME)-$(KIND)-$(TARGET).mak
+QMAKE_ARGS ?=
 
 # Qt resource files
 QRC_FILES=		sim/config.qrc		\
@@ -493,6 +494,7 @@ $(QMAKEFILE): sim/$(NAME).pro $(QRC_FILES) $(MIQ_MAKEDEPS)	\
 		$(QMAKE_ENV)				\
 		$(QMAKE) $(<F) -o $(@F) 		\
 		$(QMAKE_SPECS:%=-spec %) 		\
+		$(QMAKE_ARGS)				\
 		$(if $V,,CONFIG+=silent) 		\
 		CONFIG+=$(QMAKE_$(TARGET)) 		\
 		DESTDIR="$$DESTDIR"			\

@@ -81,10 +81,20 @@ RECORDER(sim_keys, 16, "Keys from the simulator");
 RECORDER(sim_audio, 16, "Audio for the simulator");
 
 extern bool run_tests;
+extern bool noisy_tests;
+extern bool no_beep;
 extern bool shift_held;
 extern bool alt_held;
 
 #if !WASM
+
+static bool audio_enabled()
+// ----------------------------------------------------------------------------
+//   Enable audio only when beeps are actually allowed
+// ----------------------------------------------------------------------------
+{
+    return !no_beep && (!run_tests || noisy_tests);
+}
 
 MainWindow *MainWindow::mainWindow = nullptr;
 qreal MainWindow::userScaling = 1.0;
@@ -97,9 +107,9 @@ MainWindow::MainWindow(QWidget *parent)
       keyboard_width(698), keyboard_height(878),
       resizeDirection(0),
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-      devices(new QMediaDevices(this)),
+        devices(audio_enabled() ? new QMediaDevices(this) : nullptr),
 #endif
-      audio(), generator()
+        audio(), generator(), playing(false)
 {
     mainWindow = this;
 
@@ -167,13 +177,16 @@ MainWindow::MainWindow(QWidget *parent)
 #endif
 
     // Audio setup
+    if (audio_enabled())
+    {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    connect(devices, &QMediaDevices::audioOutputsChanged,
-            this, &MainWindow::updateAudioDevices);
-    initializeAudio(devices->defaultAudioOutput(), 0);
+        connect(devices, &QMediaDevices::audioOutputsChanged,
+                this, &MainWindow::updateAudioDevices);
+        initializeAudio(devices->defaultAudioOutput(), 0);
 #else
-    initializeAudio(QAudioDeviceInfo::defaultOutputDevice(), 0);
+        initializeAudio(QAudioDeviceInfo::defaultOutputDevice(), 0);
 #endif
+    }
 
     setlocale(LC_ALL, "C");
 
@@ -1123,14 +1136,21 @@ void MainWindow::startBuzzer(uint frequency)
 //   Start a buzzer
 // ----------------------------------------------------------------------------
 {
+    if (!audio_enabled())
+        return;
+
     record(sim_audio, "Start buzzer %d.%02d Hz, creating samples",
            frequency / 100, frequency % 100);
 
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (!devices)
+        return;
     initializeAudio(devices->defaultAudioOutput(), frequency);
 #else
     initializeAudio(QAudioDeviceInfo::defaultOutputDevice(), frequency);
 #endif
+    if (!audio)
+        return;
     audio->setVolume(1);
     switch (audio->state())
     {
@@ -1154,6 +1174,12 @@ void MainWindow::stopBuzzer()
 //   Start a buzzer
 // ----------------------------------------------------------------------------
 {
+    if (!audio)
+    {
+        playing = false;
+        return;
+    }
+
     record(sim_audio, "Stop buzzer, audio state is %d", audio->state());
     switch (audio->state())
     {
@@ -1176,7 +1202,12 @@ void MainWindow::updateAudioDevices()
 //   Audio devices changed, restart without changing the frequency
 // ----------------------------------------------------------------------------
 {
+    if (!audio_enabled() || !generator)
+        return;
+
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    if (!devices)
+        return;
     initializeAudio(devices->defaultAudioOutput(), generator->frequency());
 #else
     initializeAudio(QAudioDeviceInfo::defaultOutputDevice(), generator->frequency());

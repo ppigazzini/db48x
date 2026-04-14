@@ -1,0 +1,188 @@
+name: Sanitizers GCC
+
+on:
+  push:
+    branches: [ stable, dev ]
+  pull_request:
+    branches: [ stable, dev ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.11.0'
+  QT_LINUX_ARCH: 'linux_gcc_64'
+
+jobs:
+  analyze-simulator-asan-ubsan-linux:
+    name: Analyze Simulator (Linux, GCC ASan/UBSan)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libxcb-cursor0 libgl1-mesa-dev libxkbcommon-x11-0 libfreetype6-dev pkg-config
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        aqtversion: '==3.3.*'
+        host: 'linux'
+        target: 'desktop'
+        arch: ${{ env.QT_LINUX_ARCH }}
+        modules: 'qtmultimedia'
+        cache: 'true'
+        cache-key-prefix: 'db48x-qt-linux'
+
+    - name: Build simulator with ASan and UBSan
+      env:
+        HOME: ${{ runner.temp }}/db48x-sanitizers-home
+      run: |
+        mkdir -p "$HOME"
+        echo "${{ github.run_number }}" > .build_id
+        build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        printf 'Using %s build jobs\n' "$build_jobs"
+        qmake_args=(
+          QMAKE_CC=gcc
+          QMAKE_CXX=g++
+          QMAKE_LINK=g++
+          QMAKE_CFLAGS+=-fsanitize=address,undefined
+          QMAKE_CXXFLAGS+=-fsanitize=address,undefined
+          QMAKE_CFLAGS_DEBUG+=-O1
+          QMAKE_CFLAGS_DEBUG+=-fno-omit-frame-pointer
+          QMAKE_CXXFLAGS_DEBUG+=-O1
+          QMAKE_CXXFLAGS_DEBUG+=-fno-omit-frame-pointer
+          QMAKE_CXXFLAGS_DEBUG+=-fno-optimize-sibling-calls
+          QMAKE_LFLAGS+=-fsanitize=address,undefined
+        )
+        make -j"$build_jobs" debug-sim QMAKE_ARGS="${qmake_args[*]}"
+
+        simulator_bin="$(realpath -m "$PWD/sim/debug")"
+        printf 'Expected debug-sim binary: %s\n' "$simulator_bin"
+        if [[ ! -x "$simulator_bin" ]]; then
+          echo "No runnable simulator binary found after debug-sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          if [[ -f "$qmake_makefile" ]]; then
+            echo "Generated qmake Makefile diagnostics:"
+            grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
+          fi
+          ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD/sim"
+          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' -o -name 'debug' \) -print | sort || true
+          exit 1
+        fi
+
+        printf 'Selected simulator binary: %s\n' "$simulator_bin"
+        ls -l "$simulator_bin"
+        file "$simulator_bin" || true
+
+        printf 'SIMULATOR_BIN=%s\n' "$simulator_bin" >> "$GITHUB_ENV"
+
+    - name: Exercise simulator under GCC ASan/UBSan
+      env:
+        HOME: ${{ runner.temp }}/db48x-sanitizers-home
+        QT_QPA_PLATFORM: offscreen
+        ASAN_OPTIONS: detect_leaks=1
+        UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+      run: |
+        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/sim/debug}")"
+        printf 'Using simulator binary: %s\n' "$simulator_bin"
+        test -x "$simulator_bin"
+        ls -l "$simulator_bin"
+        "$simulator_bin" -Tall
+
+  analyze-simulator-valgrind-linux:
+    name: Analyze Simulator (Linux, GCC Valgrind)
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y valgrind libxcb-cursor0 libgl1-mesa-dev libxkbcommon-x11-0 libfreetype6-dev pkg-config
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        aqtversion: '==3.3.*'
+        host: 'linux'
+        target: 'desktop'
+        arch: ${{ env.QT_LINUX_ARCH }}
+        modules: 'qtmultimedia'
+        cache: 'true'
+        cache-key-prefix: 'db48x-qt-linux'
+
+    - name: Build simulator for Valgrind
+      env:
+        HOME: ${{ runner.temp }}/db48x-valgrind-home
+      run: |
+        mkdir -p "$HOME"
+        echo "${{ github.run_number }}" > .build_id
+        build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        printf 'Using %s build jobs\n' "$build_jobs"
+        make -j"$build_jobs" debug-sim
+
+        simulator_bin="$(realpath -m "$PWD/sim/debug")"
+        printf 'Expected debug-sim binary: %s\n' "$simulator_bin"
+        if [[ ! -x "$simulator_bin" ]]; then
+          echo "No runnable simulator binary found after debug-sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          if [[ -f "$qmake_makefile" ]]; then
+            echo "Generated qmake Makefile diagnostics:"
+            grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
+          fi
+          ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD/sim"
+          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' -o -name 'debug' \) -print | sort || true
+          exit 1
+        fi
+
+        printf 'Selected simulator binary: %s\n' "$simulator_bin"
+        ls -l "$simulator_bin"
+        file "$simulator_bin" || true
+
+        printf 'SIMULATOR_BIN=%s\n' "$simulator_bin" >> "$GITHUB_ENV"
+
+    - name: Exercise simulator under GCC Valgrind
+      env:
+        HOME: ${{ runner.temp }}/db48x-valgrind-home
+        QT_QPA_PLATFORM: offscreen
+        G_DEBUG: gc-friendly
+        G_SLICE: always-malloc
+      run: |
+        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/sim/debug}")"
+        printf 'Using simulator binary: %s\n' "$simulator_bin"
+        test -x "$simulator_bin"
+        ls -l "$simulator_bin"
+        valgrind_args=(
+          --tool=memcheck
+          --leak-check=full
+          --show-leak-kinds=definite,possible
+          --errors-for-leak-kinds=definite,possible
+          --track-origins=yes
+          --num-callers=30
+          --error-exitcode=1
+        )
+        valgrind "${valgrind_args[@]}" "$simulator_bin" -Tall

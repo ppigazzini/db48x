@@ -1,0 +1,452 @@
+name: Tests
+
+on:
+  push:
+    branches: [ stable, dev ]
+  pull_request:
+    branches: [ stable, dev ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  QT_VERSION: '6.11.0'
+  LLVM_VERSION: '22'
+  QT_LINUX_ARCH: 'linux_gcc_64'
+  QT_MAC_ARCH: 'clang_64'
+
+jobs:
+  test-simulator-linux-gcc:
+    name: Test Simulator (Linux, GCC Qt 6.11.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libxcb-cursor0 \
+          libgl1-mesa-dev \
+          libxkbcommon-x11-0 \
+          libfreetype6-dev \
+          pkg-config
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        aqtversion: '==3.3.*'
+        host: 'linux'
+        target: 'desktop'
+        arch: ${{ env.QT_LINUX_ARCH }}
+        modules: 'qtmultimedia'
+        cache: 'true'
+        cache-key-prefix: 'db48x-qt-linux'
+
+    - name: Build debug simulator
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-linux-gcc-home
+      run: |
+        mkdir -p "$HOME"
+        echo "${{ github.run_number }}" > .build_id
+        build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        printf 'Using %s build jobs\n' "$build_jobs"
+        make -j"$build_jobs" debug-sim
+
+        simulator_bin="$(realpath -m "$PWD/sim/debug")"
+        printf 'Expected debug-sim binary: %s\n' "$simulator_bin"
+        if [[ ! -x "$simulator_bin" ]]; then
+          echo "No runnable simulator binary found after debug-sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          if [[ -f "$qmake_makefile" ]]; then
+            echo "Generated qmake Makefile diagnostics:"
+            grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
+          fi
+          ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD/sim"
+          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' -o -name 'debug' \) -print | sort || true
+          exit 1
+        fi
+
+        printf 'Selected simulator binary: %s\n' "$simulator_bin"
+        ls -l "$simulator_bin"
+        file "$simulator_bin" || true
+
+        printf 'SIMULATOR_BIN=%s\n' "$simulator_bin" >> "$GITHUB_ENV"
+
+    - name: Run full simulator test suite
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-linux-gcc-home
+        QT_QPA_PLATFORM: offscreen
+      run: |
+        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/sim/debug}")"
+        printf 'Using simulator binary: %s\n' "$simulator_bin"
+        test -x "$simulator_bin"
+        ls -l "$simulator_bin"
+        "$simulator_bin" -Tall
+
+  test-simulator-windows-ucrt64-gcc:
+    name: Test Simulator (Windows, MSYS2 UCRT64 GCC)
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Setup MSYS2 UCRT64 toolchain
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: UCRT64
+        update: true
+        cache: true
+        install: >-
+          git
+          mingw-w64-ucrt-x86_64-freetype
+          mingw-w64-ucrt-x86_64-gcc
+          mingw-w64-ucrt-x86_64-libsystre
+          mingw-w64-ucrt-x86_64-make
+          mingw-w64-ucrt-x86_64-pkgconf
+          mingw-w64-ucrt-x86_64-qt6-base
+          mingw-w64-ucrt-x86_64-qt6-declarative
+          mingw-w64-ucrt-x86_64-qt6-multimedia
+          mingw-w64-ucrt-x86_64-qt6-translations
+          mingw-w64-ucrt-x86_64-qt6-tools
+
+    - name: Show MSYS2 UCRT64 toolchain
+      shell: msys2 {0}
+      run: |
+        gcc --version
+        g++ --version
+        mingw32-make --version
+        qmake6 --version || qmake --version
+
+    - name: Build debug simulator with MSYS2 UCRT64 GCC
+      shell: msys2 {0}
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-windows-ucrt64-home
+      run: |
+        mkdir -p "$HOME"
+        export QMAKE_SPECS=win32-g++
+        echo "${{ github.run_number }}" > .build_id
+        build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        printf 'Using %s build jobs\n' "$build_jobs"
+        mingw32-make -j"$build_jobs" debug-sim \
+          QMAKE_SPECS="$QMAKE_SPECS"
+
+        simulator_bin="$PWD/db48x.exe"
+        if [[ ! -f "$simulator_bin" ]]; then
+          echo "No runnable simulator binary found after debug-sim build." >&2
+          ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD"
+          ls -la "$PWD/sim"
+          find "$PWD" -maxdepth 4 -type f \( -name 'db48x.exe' -o -name 'debug.exe' \) -print | sort || true
+          exit 1
+        fi
+
+        printf 'Selected simulator binary: %s\n' "$simulator_bin"
+        ls -l "$simulator_bin"
+        file "$simulator_bin" || true
+
+        printf 'SIMULATOR_BIN=%s\n' "$simulator_bin" >> "$GITHUB_ENV"
+
+    - name: Run full simulator test suite
+      shell: msys2 {0}
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-windows-ucrt64-home
+        QT_QPA_PLATFORM: offscreen
+      run: |
+        export QT_PLUGIN_PATH=/ucrt64/share/qt6/plugins
+        simulator_bin="${SIMULATOR_BIN:-$PWD/db48x.exe}"
+        printf 'Using simulator binary: %s\n' "$simulator_bin"
+        test -f "$simulator_bin"
+        ls -l "$simulator_bin"
+        "$simulator_bin" -Tall
+
+  test-simulator-macos-apple-clang:
+    name: Test Simulator (macOS, Apple Clang Qt 6.11.0)
+    runs-on: macos-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Show Apple Clang toolchain
+      run: |
+        clang --version
+        qmake --version || true
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        aqtversion: '==3.3.*'
+        host: 'mac'
+        target: 'desktop'
+        arch: ${{ env.QT_MAC_ARCH }}
+        modules: 'qtmultimedia'
+        cache: 'true'
+        cache-key-prefix: 'db48x-qt-mac-clang'
+
+    - name: Build debug simulator with Apple Clang
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-macos-home
+      run: |
+        mkdir -p "$HOME"
+        echo "${{ github.run_number }}" > .build_id
+        build_jobs="$(sysctl -n hw.ncpu 2>/dev/null || echo 3)"
+        printf 'Using %s build jobs\n' "$build_jobs"
+        make -j"$build_jobs" debug-sim
+
+        simulator_candidates=(
+          "$PWD/sim/debug"
+          "$PWD/db48x.app/Contents/MacOS/db48x"
+          "$PWD/sim/debug.app/Contents/MacOS/debug"
+        )
+        simulator_bin=
+        for candidate in "${simulator_candidates[@]}"; do
+          if [[ -x "$candidate" ]]; then
+            simulator_bin="$candidate"
+            break
+          fi
+        done
+
+        if [[ -z "$simulator_bin" ]]; then
+          echo "No runnable simulator binary found after debug-sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          if [[ -f "$qmake_makefile" ]]; then
+            echo "Generated qmake Makefile diagnostics:"
+            grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
+          fi
+          ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD/sim"
+          find "$PWD" -maxdepth 7 -type f -perm -111 \( -name debug -o -path '*/Contents/MacOS/*' \) -print | sort || true
+          exit 1
+        fi
+
+        printf 'Selected simulator binary: %s\n' "$simulator_bin"
+        ls -l "$simulator_bin"
+        file "$simulator_bin" || true
+
+        printf 'SIMULATOR_BIN=%s\n' "$simulator_bin" >> "$GITHUB_ENV"
+
+    - name: Run full simulator test suite
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-macos-home
+        QT_QPA_PLATFORM: offscreen
+        MallocNanoZone: '0'
+      run: |
+        simulator_bin="${SIMULATOR_BIN:-$PWD/sim/debug}"
+        printf 'Using simulator binary: %s\n' "$simulator_bin"
+        test -x "$simulator_bin"
+        ls -l "$simulator_bin"
+        "$simulator_bin" -Tall
+
+  test-simulator-windows-clang64:
+    name: Test Simulator (Windows, MSYS2 CLANG64)
+    runs-on: windows-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Setup MSYS2 CLANG64 toolchain
+      uses: msys2/setup-msys2@v2
+      with:
+        msystem: CLANG64
+        update: true
+        cache: true
+        install: >-
+          git
+          mingw-w64-clang-x86_64-clang
+          mingw-w64-clang-x86_64-compiler-rt
+          mingw-w64-clang-x86_64-freetype
+          mingw-w64-clang-x86_64-libsystre
+          mingw-w64-clang-x86_64-lld
+          mingw-w64-clang-x86_64-make
+          mingw-w64-clang-x86_64-pkgconf
+          mingw-w64-clang-x86_64-qt6-base
+          mingw-w64-clang-x86_64-qt6-declarative
+          mingw-w64-clang-x86_64-qt6-multimedia
+          mingw-w64-clang-x86_64-qt6-translations
+          mingw-w64-clang-x86_64-qt6-tools
+
+    - name: Show MSYS2 CLANG64 toolchain
+      shell: msys2 {0}
+      run: |
+        clang --version
+        ld.lld --version
+        qmake6 --version || qmake --version
+
+    - name: Build debug simulator with MSYS2 CLANG64
+      shell: msys2 {0}
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-windows-clang64-home
+      run: |
+        mkdir -p "$HOME"
+        export QMAKE_SPECS=win32-clang-g++
+        echo "${{ github.run_number }}" > .build_id
+        build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        printf 'Using %s build jobs\n' "$build_jobs"
+        qmake_args=(
+          QMAKE_CC=clang
+          QMAKE_CXX=clang++
+          QMAKE_LINK=clang++
+          QMAKE_LFLAGS+=-fuse-ld=lld
+        )
+        mingw32-make -j"$build_jobs" debug-sim \
+          QMAKE_SPECS="$QMAKE_SPECS" \
+          QMAKE_ARGS="${qmake_args[*]}"
+
+        simulator_bin="$PWD/db48x.exe"
+        if [[ ! -f "$simulator_bin" ]]; then
+          echo "No runnable simulator binary found after debug-sim build." >&2
+          ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD"
+          ls -la "$PWD/sim"
+          find "$PWD" -maxdepth 4 -type f \( -name 'db48x.exe' -o -name 'debug.exe' \) -print | sort || true
+          exit 1
+        fi
+
+        printf 'Selected simulator binary: %s\n' "$simulator_bin"
+        ls -l "$simulator_bin"
+        file "$simulator_bin" || true
+
+        printf 'SIMULATOR_BIN=%s\n' "$simulator_bin" >> "$GITHUB_ENV"
+
+    - name: Run full simulator test suite
+      shell: msys2 {0}
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-windows-clang64-home
+        QT_QPA_PLATFORM: offscreen
+      run: |
+        export QT_PLUGIN_PATH=/clang64/share/qt6/plugins
+        simulator_bin="${SIMULATOR_BIN:-$PWD/db48x.exe}"
+        printf 'Using simulator binary: %s\n' "$simulator_bin"
+        test -f "$simulator_bin"
+        ls -l "$simulator_bin"
+        "$simulator_bin" -Tall
+
+  test-simulator-linux-clang22:
+    name: Test Simulator (Linux, Clang 22 Qt 6.11.0)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      with:
+        persist-credentials: false
+        submodules: recursive
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          ca-certificates \
+          libxcb-cursor0 \
+          libgl1-mesa-dev \
+          libxkbcommon-x11-0 \
+          libfreetype6-dev \
+          pkg-config \
+          wget
+
+    - name: Install LLVM and Clang 22
+      run: |
+        sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)" ./llvm.sh "${LLVM_VERSION}"
+        sudo apt-get install -y --no-install-recommends \
+          clang-"${LLVM_VERSION}" \
+          clang-tools-"${LLVM_VERSION}" \
+          clang-tidy-"${LLVM_VERSION}" \
+          lld-"${LLVM_VERSION}" \
+          libclang-rt-"${LLVM_VERSION}"-dev
+        llvm_bindir="$(llvm-config-"${LLVM_VERSION}" --bindir)"
+        echo "PATH=${llvm_bindir}:$PATH" >> "$GITHUB_ENV"
+
+    - name: Show LLVM toolchain
+      run: |
+        clang --version
+        ld.lld --version
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v4
+      with:
+        version: ${{ env.QT_VERSION }}
+        aqtversion: '==3.3.*'
+        host: 'linux'
+        target: 'desktop'
+        arch: ${{ env.QT_LINUX_ARCH }}
+        modules: 'qtmultimedia'
+        cache: 'true'
+        cache-key-prefix: 'db48x-qt-linux-clang'
+
+    - name: Build debug simulator with Clang 22
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-linux-clang-home
+      run: |
+        mkdir -p "$HOME"
+        echo "${{ github.run_number }}" > .build_id
+        build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        printf 'Using %s build jobs\n' "$build_jobs"
+        qmake_args=(
+          QMAKE_CC=clang
+          QMAKE_CXX=clang++
+          QMAKE_LINK=clang++
+          QMAKE_LFLAGS+=-fuse-ld=lld
+        )
+        make -j"$build_jobs" debug-sim QMAKE_ARGS="${qmake_args[*]}"
+
+        simulator_bin="$(realpath -m "$PWD/sim/debug")"
+        printf 'Expected debug-sim binary: %s\n' "$simulator_bin"
+        if [[ ! -x "$simulator_bin" ]]; then
+          echo "No runnable simulator binary found after debug-sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          if [[ -f "$qmake_makefile" ]]; then
+            echo "Generated qmake Makefile diagnostics:"
+            grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
+          fi
+          ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD/sim"
+          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' -o -name 'debug' \) -print | sort || true
+          exit 1
+        fi
+
+        printf 'Selected simulator binary: %s\n' "$simulator_bin"
+        ls -l "$simulator_bin"
+        file "$simulator_bin" || true
+
+        printf 'SIMULATOR_BIN=%s\n' "$simulator_bin" >> "$GITHUB_ENV"
+
+    - name: Run full simulator test suite
+      env:
+        HOME: ${{ runner.temp }}/db48x-tests-linux-clang-home
+        QT_QPA_PLATFORM: offscreen
+      run: |
+        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/sim/debug}")"
+        printf 'Using simulator binary: %s\n' "$simulator_bin"
+        test -x "$simulator_bin"
+        ls -l "$simulator_bin"
+        "$simulator_bin" -Tall
