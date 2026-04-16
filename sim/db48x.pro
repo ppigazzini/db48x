@@ -133,7 +133,7 @@ color:DEFINES += CONFIG_COLOR
 # Additional external library HIDAPI linked statically into the code
 INCLUDEPATH += ../src/dm42 ../src/dmcp ../src ..
 
-win32:   LIBS += -lsetupapi -lgnurx
+win32:   LIBS += -lsetupapi -lgnurx -lwinpthread
 android: LIBS +=
 freebsd: LIBS += -lthr -liconv
 macx:    LIBS += -framework CoreFoundation -framework IOKit
