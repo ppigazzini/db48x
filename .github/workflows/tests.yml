@@ -55,7 +55,7 @@ jobs:
         cache: 'true'
         cache-key-prefix: 'db48x-qt-linux'
 
-    - name: Build debug simulator
+    - name: Build simulator
       env:
         HOME: ${{ runner.temp }}/db48x-tests-linux-gcc-home
       run: |
@@ -63,20 +63,21 @@ jobs:
         echo "${{ github.run_number }}" > .build_id
         build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
         printf 'Using %s build jobs\n' "$build_jobs"
-        make -j"$build_jobs" debug-sim
+        make -j"$build_jobs" sim
 
-        simulator_bin="$(realpath -m "$PWD/sim/debug")"
-        printf 'Expected debug-sim binary: %s\n' "$simulator_bin"
+        simulator_bin="$(realpath -m "$PWD/db48x")"
+        printf 'Expected simulator binary: %s\n' "$simulator_bin"
         if [[ ! -x "$simulator_bin" ]]; then
-          echo "No runnable simulator binary found after debug-sim build." >&2
-          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          echo "No runnable simulator binary found after sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-release.mak"
           if [[ -f "$qmake_makefile" ]]; then
             echo "Generated qmake Makefile diagnostics:"
             grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
           fi
           ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD"
           ls -la "$PWD/sim"
-          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' -o -name 'debug' \) -print | sort || true
+          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' \) -print | sort || true
           exit 1
         fi
 
@@ -91,7 +92,7 @@ jobs:
         HOME: ${{ runner.temp }}/db48x-tests-linux-gcc-home
         QT_QPA_PLATFORM: offscreen
       run: |
-        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/sim/debug}")"
+        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/db48x}")"
         printf 'Using simulator binary: %s\n' "$simulator_bin"
         test -x "$simulator_bin"
         ls -l "$simulator_bin"
@@ -136,7 +137,7 @@ jobs:
         mingw32-make --version
         qmake6 --version || qmake --version
 
-    - name: Build debug simulator with MSYS2 UCRT64 GCC
+    - name: Build simulator with MSYS2 UCRT64 GCC
       shell: msys2 {0}
       env:
         HOME: ${{ runner.temp }}/db48x-tests-windows-ucrt64-home
@@ -146,16 +147,16 @@ jobs:
         echo "${{ github.run_number }}" > .build_id
         build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
         printf 'Using %s build jobs\n' "$build_jobs"
-        mingw32-make -j"$build_jobs" debug-sim \
+        mingw32-make -j"$build_jobs" sim \
           QMAKE_SPECS="$QMAKE_SPECS"
 
         simulator_bin="$PWD/db48x.exe"
         if [[ ! -f "$simulator_bin" ]]; then
-          echo "No runnable simulator binary found after debug-sim build." >&2
+          echo "No runnable simulator binary found after sim build." >&2
           ls -ld "$PWD" "$PWD/sim"
           ls -la "$PWD"
           ls -la "$PWD/sim"
-          find "$PWD" -maxdepth 4 -type f \( -name 'db48x.exe' -o -name 'debug.exe' \) -print | sort || true
+          find "$PWD" -maxdepth 4 -type f -name 'db48x.exe' -print | sort || true
           exit 1
         fi
 
@@ -207,7 +208,7 @@ jobs:
         cache: 'true'
         cache-key-prefix: 'db48x-qt-mac-clang'
 
-    - name: Build debug simulator with Apple Clang
+    - name: Build simulator with Apple Clang
       env:
         HOME: ${{ runner.temp }}/db48x-tests-macos-home
       run: |
@@ -215,12 +216,11 @@ jobs:
         echo "${{ github.run_number }}" > .build_id
         build_jobs="$(sysctl -n hw.ncpu 2>/dev/null || echo 3)"
         printf 'Using %s build jobs\n' "$build_jobs"
-        make -j"$build_jobs" debug-sim
+        make -j"$build_jobs" sim
 
         simulator_candidates=(
-          "$PWD/sim/debug"
           "$PWD/db48x.app/Contents/MacOS/db48x"
-          "$PWD/sim/debug.app/Contents/MacOS/debug"
+          "$PWD/db48x"
         )
         simulator_bin=
         for candidate in "${simulator_candidates[@]}"; do
@@ -231,15 +231,16 @@ jobs:
         done
 
         if [[ -z "$simulator_bin" ]]; then
-          echo "No runnable simulator binary found after debug-sim build." >&2
-          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          echo "No runnable simulator binary found after sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-release.mak"
           if [[ -f "$qmake_makefile" ]]; then
             echo "Generated qmake Makefile diagnostics:"
             grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
           fi
           ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD"
           ls -la "$PWD/sim"
-          find "$PWD" -maxdepth 7 -type f -perm -111 \( -name debug -o -path '*/Contents/MacOS/*' \) -print | sort || true
+          find "$PWD" -maxdepth 7 -type f -perm -111 \( -name 'db48x' -o -path '*/Contents/MacOS/*' \) -print | sort || true
           exit 1
         fi
 
@@ -255,7 +256,7 @@ jobs:
         QT_QPA_PLATFORM: offscreen
         MallocNanoZone: '0'
       run: |
-        simulator_bin="${SIMULATOR_BIN:-$PWD/sim/debug}"
+        simulator_bin="${SIMULATOR_BIN:-$PWD/db48x.app/Contents/MacOS/db48x}"
         printf 'Using simulator binary: %s\n' "$simulator_bin"
         test -x "$simulator_bin"
         ls -l "$simulator_bin"
@@ -301,7 +302,7 @@ jobs:
         ld.lld --version
         qmake6 --version || qmake --version
 
-    - name: Build debug simulator with MSYS2 CLANG64
+    - name: Build simulator with MSYS2 CLANG64
       shell: msys2 {0}
       env:
         HOME: ${{ runner.temp }}/db48x-tests-windows-clang64-home
@@ -317,17 +318,17 @@ jobs:
           QMAKE_LINK=clang++
           QMAKE_LFLAGS+=-fuse-ld=lld
         )
-        mingw32-make -j"$build_jobs" debug-sim \
+        mingw32-make -j"$build_jobs" sim \
           QMAKE_SPECS="$QMAKE_SPECS" \
           QMAKE_ARGS="${qmake_args[*]}"
 
         simulator_bin="$PWD/db48x.exe"
         if [[ ! -f "$simulator_bin" ]]; then
-          echo "No runnable simulator binary found after debug-sim build." >&2
+          echo "No runnable simulator binary found after sim build." >&2
           ls -ld "$PWD" "$PWD/sim"
           ls -la "$PWD"
           ls -la "$PWD/sim"
-          find "$PWD" -maxdepth 4 -type f \( -name 'db48x.exe' -o -name 'debug.exe' \) -print | sort || true
+          find "$PWD" -maxdepth 4 -type f -name 'db48x.exe' -print | sort || true
           exit 1
         fi
 
@@ -403,7 +404,7 @@ jobs:
         cache: 'true'
         cache-key-prefix: 'db48x-qt-linux-clang'
 
-    - name: Build debug simulator with Clang 22
+    - name: Build simulator with Clang 22
       env:
         HOME: ${{ runner.temp }}/db48x-tests-linux-clang-home
       run: |
@@ -417,20 +418,21 @@ jobs:
           QMAKE_LINK=clang++
           QMAKE_LFLAGS+=-fuse-ld=lld
         )
-        make -j"$build_jobs" debug-sim QMAKE_ARGS="${qmake_args[*]}"
+        make -j"$build_jobs" sim QMAKE_ARGS="${qmake_args[*]}"
 
-        simulator_bin="$(realpath -m "$PWD/sim/debug")"
-        printf 'Expected debug-sim binary: %s\n' "$simulator_bin"
+        simulator_bin="$(realpath -m "$PWD/db48x")"
+        printf 'Expected simulator binary: %s\n' "$simulator_bin"
         if [[ ! -x "$simulator_bin" ]]; then
-          echo "No runnable simulator binary found after debug-sim build." >&2
-          qmake_makefile="$PWD/sim/db48x-sim-debug.mak"
+          echo "No runnable simulator binary found after sim build." >&2
+          qmake_makefile="$PWD/sim/db48x-sim-release.mak"
           if [[ -f "$qmake_makefile" ]]; then
             echo "Generated qmake Makefile diagnostics:"
             grep -E '^(TARGET|DESTDIR|OBJECTS_DIR|MOC_DIR|RCC_DIR|UI_DIR)[[:space:]]*=' "$qmake_makefile" || true
           fi
           ls -ld "$PWD" "$PWD/sim"
+          ls -la "$PWD"
           ls -la "$PWD/sim"
-          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' -o -name 'debug' \) -print | sort || true
+          find "$PWD/.build" -maxdepth 8 -type f \( -name 'db48x*' -o -name 'db48x*.exe' \) -print | sort || true
           exit 1
         fi
 
@@ -445,7 +447,7 @@ jobs:
         HOME: ${{ runner.temp }}/db48x-tests-linux-clang-home
         QT_QPA_PLATFORM: offscreen
       run: |
-        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/sim/debug}")"
+        simulator_bin="$(realpath -m "${SIMULATOR_BIN:-$PWD/db48x}")"
         printf 'Using simulator binary: %s\n' "$simulator_bin"
         test -x "$simulator_bin"
         ls -l "$simulator_bin"
