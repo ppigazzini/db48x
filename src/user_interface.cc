@@ -84,6 +84,8 @@ static uint help_keymap_generation = 1;
 static uint help_assignment_generation = 1;
 // Max bytes kept for one rendered "Keys: ..." help line.
 static constexpr size_t HELP_ACCESS_LINE_SIZE = 80;
+static constexpr unicode HELP_ACCESS_LEFT_SHIFT_MARKER  = 0x1F7E8U;
+static constexpr unicode HELP_ACCESS_RIGHT_SHIFT_MARKER = 0x1F7E6U;
 
 // Defined later in this file (default keyboard bindings per shift plane).
 extern const byte *const defaultCommand[user_interface::NUM_PLANES];
@@ -3873,10 +3875,13 @@ void user_interface::draw_help_access_paths(id cmd,
             {
                 unicode cp = utf8_codepoint(text);
                 text       = utf8_next(text);
-                if (cp == L'🟨' || cp == L'🟦')
+                if (cp == HELP_ACCESS_LEFT_SHIFT_MARKER ||
+                    cp == HELP_ACCESS_RIGHT_SHIFT_MARKER)
                 {
-                    bool          ls     = cp == L'🟨';
-                    const byte   *source = cp == L'🟦' ? ann_right : ann_left;
+                    bool          ls     = cp == HELP_ACCESS_LEFT_SHIFT_MARKER;
+                    const byte   *source = cp == HELP_ACCESS_RIGHT_SHIFT_MARKER
+                        ? ann_right
+                        : ann_left;
                     pixword      *sw     = (pixword *) source;
                     grob::surface s(sw, ann_width, ann_height, 16);
                     pattern       fg    = ls ? Settings.LeftShiftForeground()
@@ -4448,11 +4453,11 @@ restart:
                     skip    = true;
                 }
                 break;
-            case L'🟨':
+            case HELP_ACCESS_LEFT_SHIFT_MARKER:
                 emit = true;
                 yellow = true;
                 break;
-            case L'🟦':
+            case HELP_ACCESS_RIGHT_SHIFT_MARKER:
                 emit = true;
                 blue = true;
                 break;

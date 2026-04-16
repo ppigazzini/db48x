@@ -27,6 +27,7 @@ jobs:
 
     strategy:
       fail-fast: false
+      max-parallel: 3
       matrix:
         include:
         - label: MSYS2 MINGW64 GCC
@@ -124,7 +125,10 @@ jobs:
         QMAKE_ARGS: ${{ matrix.qmake_args }}
       run: |
         echo "${{ github.run_number }}" > .build_id
-        build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        build_jobs="${NUMBER_OF_PROCESSORS:-}"
+        if [[ ! "$build_jobs" =~ ^[0-9]+$ || "$build_jobs" -lt 1 ]]; then
+          build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        fi
         printf 'Using %s build jobs\n' "$build_jobs"
 
         if [[ -n "$QMAKE_ARGS" ]]; then
@@ -153,27 +157,40 @@ jobs:
         cp -r help "$package_dir/"
         windeployqt6 --force --compiler-runtime "$package_dir/db48x.exe"
 
-        copy_msys2_deps()
+        # Match the curated Windows artifact footprint from build.yml.
+        copy_selected_dlls()
         {
-          local binary="$1"
+          local pattern="$1"
+          local dll
 
-          ldd "$binary" | awk '/=>/ { print $3 }' | sort -u | while IFS= read -r dep; do
-            [[ -n "$dep" ]] || continue
-            dep="$(cygpath -u "$dep" 2>/dev/null || printf '%s' "$dep")"
-
-            case "$dep" in
-              "$TOOL_ROOT"/bin/*.dll)
-                cp -n "$dep" "$package_dir/"
-                ;;
-            esac
+          for dll in "$TOOL_ROOT"/bin/$pattern; do
+            [[ -e "$dll" ]] || continue
+            cp -n "$dll" "$package_dir/"
           done
         }
 
-        copy_msys2_deps "$package_dir/db48x.exe"
-
-        while IFS= read -r -d '' dll; do
-          copy_msys2_deps "$dll"
-        done < <(find "$package_dir" -type f -name '*.dll' -print0)
+        copy_selected_dlls 'libsystre-0.dll'
+        copy_selected_dlls 'libtre-5.dll'
+        copy_selected_dlls 'libintl-8.dll'
+        copy_selected_dlls 'libiconv-2.dll'
+        copy_selected_dlls 'libb2-1.dll'
+        copy_selected_dlls 'libdouble-conversion.dll'
+        copy_selected_dlls 'libicuin*.dll'
+        copy_selected_dlls 'libicuuc*.dll'
+        copy_selected_dlls 'libicudt*.dll'
+        copy_selected_dlls 'libpcre2-16-0.dll'
+        copy_selected_dlls 'zlib1.dll'
+        copy_selected_dlls 'libzstd.dll'
+        copy_selected_dlls 'libfreetype-6.dll'
+        copy_selected_dlls 'libharfbuzz-0.dll'
+        copy_selected_dlls 'libmd4c.dll'
+        copy_selected_dlls 'libpng16-16.dll'
+        copy_selected_dlls 'libbrotlidec.dll'
+        copy_selected_dlls 'libbrotlicommon.dll'
+        copy_selected_dlls 'libbz2-1.dll'
+        copy_selected_dlls 'libglib-2.0-0.dll'
+        copy_selected_dlls 'libgraphite2.dll'
+        copy_selected_dlls 'libpcre2-8-0.dll'
 
         {
           printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
@@ -205,4 +222,12 @@ jobs:
       with:
         name: ${{ matrix.artifact_name }}
         if-no-files-found: error
-        path: ${{ matrix.package_dir }}/
+        path: |
+          ${{ matrix.package_dir }}/db48x.exe
+          ${{ matrix.package_dir }}/*.dll
+          ${{ matrix.package_dir }}/platforms/
+          ${{ matrix.package_dir }}/imageformats/
+          ${{ matrix.package_dir }}/tls/
+          ${{ matrix.package_dir }}/translations/
+          ${{ matrix.package_dir }}/help/
+          ${{ matrix.package_dir }}/BUILD-INFO.txt
