@@ -17,7 +17,9 @@ three toolchain variants: `MINGW64`, `UCRT64`, and `CLANG64`.
 - Runs on pushes to `stable`, `dev`, and `all_msys2`
 - Runs on pull requests targeting `stable` or `dev`
 - Supports manual dispatches from GitHub Actions
-- Uploads separate bundle artifacts for side-by-side archive comparison
+- Builds both debug and release simulator bundles for each toolchain
+- Strips the release executable before packaging the release bundle
+- Uploads separate debug and release bundle artifacts for side-by-side archive comparison
 
 #### Jobs
 

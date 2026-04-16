@@ -18,7 +18,7 @@ jobs:
   build-simulator-windows-msys2:
     name: Build Simulator (${{ matrix.label }})
     runs-on: windows-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     defaults:
       run:
         shell: msys2 {0}
@@ -33,8 +33,10 @@ jobs:
         - label: MSYS2 MINGW64 GCC
           msystem: MINGW64
           tool_root: /mingw64
-          artifact_name: db48x-simulator-windows-mingw64
-          package_dir: dist/msys2/mingw64
+          debug_artifact_name: db48x-simulator-windows-mingw64
+          debug_package_dir: dist/msys2/mingw64/debug
+          release_artifact_name: db48x-simulator-windows-mingw64-release
+          release_package_dir: dist/msys2/mingw64/release
           qmake_specs: win32-g++
           qmake_args: ''
           packages: >-
@@ -52,8 +54,10 @@ jobs:
         - label: MSYS2 UCRT64 GCC
           msystem: UCRT64
           tool_root: /ucrt64
-          artifact_name: db48x-simulator-windows-ucrt64
-          package_dir: dist/msys2/ucrt64
+          debug_artifact_name: db48x-simulator-windows-ucrt64
+          debug_package_dir: dist/msys2/ucrt64/debug
+          release_artifact_name: db48x-simulator-windows-ucrt64-release
+          release_package_dir: dist/msys2/ucrt64/release
           qmake_specs: win32-g++
           qmake_args: ''
           packages: >-
@@ -71,8 +75,10 @@ jobs:
         - label: MSYS2 CLANG64
           msystem: CLANG64
           tool_root: /clang64
-          artifact_name: db48x-simulator-windows-clang64
-          package_dir: dist/msys2/clang64
+          debug_artifact_name: db48x-simulator-windows-clang64
+          debug_package_dir: dist/msys2/clang64/debug
+          release_artifact_name: db48x-simulator-windows-clang64-release
+          release_package_dir: dist/msys2/clang64/release
           qmake_specs: win32-clang-g++
           qmake_args: QMAKE_CC=clang QMAKE_CXX=clang++ QMAKE_LINK=clang++ QMAKE_LFLAGS+=-fuse-ld=lld
           packages: >-
@@ -116,6 +122,8 @@ jobs:
         g++ --version || true
         clang --version || true
         ld.lld --version || true
+        llvm-strip --version || true
+        strip --version || true
         mingw32-make --version
         qmake6 --version || qmake --version
 
@@ -143,10 +151,11 @@ jobs:
         test -f db48x.exe
         ls -l db48x.exe
 
-    - name: Create deploy bundle
+    - name: Package debug bundle
       env:
         BUILD_LABEL: ${{ matrix.label }}
-        PACKAGE_DIR: ${{ matrix.package_dir }}
+        BUILD_KIND: debug
+        PACKAGE_DIR: ${{ matrix.debug_package_dir }}
         TOOL_ROOT: ${{ matrix.tool_root }}
       run: |
         package_dir="$PWD/$PACKAGE_DIR"
@@ -155,42 +164,34 @@ jobs:
 
         cp db48x.exe "$package_dir/"
         cp -r help "$package_dir/"
-        windeployqt6 --force --compiler-runtime "$package_dir/db48x.exe"
-
-        # Match the curated Windows artifact footprint from build.yml.
-        copy_selected_dlls()
-        {
-          local pattern="$1"
-          local dll
-
-          for dll in "$TOOL_ROOT"/bin/$pattern; do
-            [[ -e "$dll" ]] || continue
-            cp -n "$dll" "$package_dir/"
-          done
-        }
-
-        copy_selected_dlls 'libsystre-0.dll'
-        copy_selected_dlls 'libtre-5.dll'
-        copy_selected_dlls 'libintl-8.dll'
-        copy_selected_dlls 'libiconv-2.dll'
-        copy_selected_dlls 'libb2-1.dll'
-        copy_selected_dlls 'libdouble-conversion.dll'
-        copy_selected_dlls 'libicuin*.dll'
-        copy_selected_dlls 'libicuuc*.dll'
-        copy_selected_dlls 'libicudt*.dll'
-        copy_selected_dlls 'libpcre2-16-0.dll'
-        copy_selected_dlls 'zlib1.dll'
-        copy_selected_dlls 'libzstd.dll'
-        copy_selected_dlls 'libfreetype-6.dll'
-        copy_selected_dlls 'libharfbuzz-0.dll'
-        copy_selected_dlls 'libmd4c.dll'
-        copy_selected_dlls 'libpng16-16.dll'
-        copy_selected_dlls 'libbrotlidec.dll'
-        copy_selected_dlls 'libbrotlicommon.dll'
-        copy_selected_dlls 'libbz2-1.dll'
-        copy_selected_dlls 'libglib-2.0-0.dll'
-        copy_selected_dlls 'libgraphite2.dll'
-        copy_selected_dlls 'libpcre2-8-0.dll'
+        windeployqt6 "$package_dir/db48x.exe"
+        # Copy MinGW runtime and MSYS2 dependencies.
+        cp "$TOOL_ROOT/bin/libgcc_s_seh-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libstdc++-6.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libwinpthread-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libsystre-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libtre-5.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libintl-8.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libiconv-2.dll" "$package_dir/"
+        # Copy all Qt dependency DLLs.
+        cp "$TOOL_ROOT/bin/libb2-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libdouble-conversion.dll" "$package_dir/"
+        cp "$TOOL_ROOT"/bin/libicuin*.dll "$package_dir/"
+        cp "$TOOL_ROOT"/bin/libicuuc*.dll "$package_dir/"
+        cp "$TOOL_ROOT"/bin/libicudt*.dll "$package_dir/"
+        cp "$TOOL_ROOT/bin/libpcre2-16-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/zlib1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libzstd.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libfreetype-6.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libharfbuzz-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libmd4c.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libpng16-16.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libbrotlidec.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libbrotlicommon.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libbz2-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libglib-2.0-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libgraphite2.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libpcre2-8-0.dll" "$package_dir/"
 
         {
           printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
@@ -199,6 +200,7 @@ jobs:
           printf 'msystem=%s\n' "$MSYSTEM"
           printf 'tool_root=%s\n' "$TOOL_ROOT"
           printf 'label=%s\n' "$BUILD_LABEL"
+          printf 'build_kind=%s\n' "$BUILD_KIND"
           printf 'qmake_specs=%s\n' '${{ matrix.qmake_specs }}'
           printf 'qmake_args=%s\n' '${{ matrix.qmake_args }}'
           printf '\n[toolchain]\n'
@@ -209,25 +211,153 @@ jobs:
 
         find "$package_dir" -maxdepth 3 -type f | sort
 
-    - name: Code sign Windows executable
+    - name: Build release simulator
+      env:
+        QMAKE_SPECS: ${{ matrix.qmake_specs }}
+        QMAKE_ARGS: ${{ matrix.qmake_args }}
+      run: |
+        build_jobs="${NUMBER_OF_PROCESSORS:-}"
+        if [[ ! "$build_jobs" =~ ^[0-9]+$ || "$build_jobs" -lt 1 ]]; then
+          build_jobs="$(nproc 2>/dev/null || getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)"
+        fi
+        printf 'Using %s build jobs\n' "$build_jobs"
+
+        if [[ -n "$QMAKE_ARGS" ]]; then
+          mingw32-make -j"$build_jobs" release-sim \
+            QMAKE_SPECS="$QMAKE_SPECS" \
+            QMAKE_ARGS="$QMAKE_ARGS"
+        else
+          mingw32-make -j"$build_jobs" release-sim \
+            QMAKE_SPECS="$QMAKE_SPECS"
+        fi
+
+        test -f db48x.exe
+        ls -l db48x.exe
+
+    - name: Strip release executable
+      env:
+        TOOL_ROOT: ${{ matrix.tool_root }}
+      run: |
+        strip_tool=''
+
+        if [[ -x "$TOOL_ROOT/bin/llvm-strip.exe" ]]; then
+          strip_tool="$TOOL_ROOT/bin/llvm-strip.exe"
+        elif [[ -x "$TOOL_ROOT/bin/strip.exe" ]]; then
+          strip_tool="$TOOL_ROOT/bin/strip.exe"
+        elif command -v llvm-strip >/dev/null 2>&1; then
+          strip_tool="$(command -v llvm-strip)"
+        elif command -v strip >/dev/null 2>&1; then
+          strip_tool="$(command -v strip)"
+        fi
+
+        [[ -n "$strip_tool" ]] || { echo 'No strip tool found' >&2; exit 1; }
+
+        printf 'Using strip tool: %s\n' "$strip_tool"
+        "$strip_tool" db48x.exe
+        ls -l db48x.exe
+
+    - name: Package release bundle
+      env:
+        BUILD_LABEL: ${{ matrix.label }}
+        BUILD_KIND: release
+        PACKAGE_DIR: ${{ matrix.release_package_dir }}
+        TOOL_ROOT: ${{ matrix.tool_root }}
+      run: |
+        package_dir="$PWD/$PACKAGE_DIR"
+        rm -rf "$package_dir"
+        mkdir -p "$package_dir"
+
+        cp db48x.exe "$package_dir/"
+        cp -r help "$package_dir/"
+        windeployqt6 "$package_dir/db48x.exe"
+        # Copy MinGW runtime and MSYS2 dependencies.
+        cp "$TOOL_ROOT/bin/libgcc_s_seh-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libstdc++-6.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libwinpthread-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libsystre-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libtre-5.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libintl-8.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libiconv-2.dll" "$package_dir/"
+        # Copy all Qt dependency DLLs.
+        cp "$TOOL_ROOT/bin/libb2-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libdouble-conversion.dll" "$package_dir/"
+        cp "$TOOL_ROOT"/bin/libicuin*.dll "$package_dir/"
+        cp "$TOOL_ROOT"/bin/libicuuc*.dll "$package_dir/"
+        cp "$TOOL_ROOT"/bin/libicudt*.dll "$package_dir/"
+        cp "$TOOL_ROOT/bin/libpcre2-16-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/zlib1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libzstd.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libfreetype-6.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libharfbuzz-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libmd4c.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libpng16-16.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libbrotlidec.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libbrotlicommon.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libbz2-1.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libglib-2.0-0.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libgraphite2.dll" "$package_dir/"
+        cp "$TOOL_ROOT/bin/libpcre2-8-0.dll" "$package_dir/"
+
+        {
+          printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
+          printf 'ref=%s\n' "$GITHUB_REF"
+          printf 'sha=%s\n' "$GITHUB_SHA"
+          printf 'msystem=%s\n' "$MSYSTEM"
+          printf 'tool_root=%s\n' "$TOOL_ROOT"
+          printf 'label=%s\n' "$BUILD_LABEL"
+          printf 'build_kind=%s\n' "$BUILD_KIND"
+          printf 'qmake_specs=%s\n' '${{ matrix.qmake_specs }}'
+          printf 'qmake_args=%s\n' '${{ matrix.qmake_args }}'
+          printf '\n[toolchain]\n'
+          gcc --version 2>/dev/null | sed -n '1p' || true
+          clang --version 2>/dev/null | sed -n '1p' || true
+          qmake6 --version 2>/dev/null || qmake --version 2>/dev/null || true
+        } > "$package_dir/BUILD-INFO.txt"
+
+        find "$package_dir" -maxdepth 3 -type f | sort
+
+    - name: Code sign debug Windows executable
       if: ${{ env.WINDOWS_CERT_DATA != '' }}
       uses: lando/code-sign-action@v3
       with:
-        file: ${{ matrix.package_dir }}/db48x.exe
+        file: ${{ matrix.debug_package_dir }}/db48x.exe
         certificate-data: ${{ secrets.WINDOWS_CERT_DATA }}
         certificate-password: ${{ secrets.WINDOWS_CERT_PASSWORD }}
 
-    - name: Upload bundle artifact
+    - name: Code sign release Windows executable
+      if: ${{ env.WINDOWS_CERT_DATA != '' }}
+      uses: lando/code-sign-action@v3
+      with:
+        file: ${{ matrix.release_package_dir }}/db48x.exe
+        certificate-data: ${{ secrets.WINDOWS_CERT_DATA }}
+        certificate-password: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+
+    - name: Upload debug bundle artifact
       uses: actions/upload-artifact@v7
       with:
-        name: ${{ matrix.artifact_name }}
+        name: ${{ matrix.debug_artifact_name }}
         if-no-files-found: error
         path: |
-          ${{ matrix.package_dir }}/db48x.exe
-          ${{ matrix.package_dir }}/*.dll
-          ${{ matrix.package_dir }}/platforms/
-          ${{ matrix.package_dir }}/imageformats/
-          ${{ matrix.package_dir }}/tls/
-          ${{ matrix.package_dir }}/translations/
-          ${{ matrix.package_dir }}/help/
-          ${{ matrix.package_dir }}/BUILD-INFO.txt
+          ${{ matrix.debug_package_dir }}/db48x.exe
+          ${{ matrix.debug_package_dir }}/*.dll
+          ${{ matrix.debug_package_dir }}/platforms/
+          ${{ matrix.debug_package_dir }}/imageformats/
+          ${{ matrix.debug_package_dir }}/tls/
+          ${{ matrix.debug_package_dir }}/translations/
+          ${{ matrix.debug_package_dir }}/help/
+          ${{ matrix.debug_package_dir }}/BUILD-INFO.txt
+
+    - name: Upload release bundle artifact
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ matrix.release_artifact_name }}
+        if-no-files-found: error
+        path: |
+          ${{ matrix.release_package_dir }}/db48x.exe
+          ${{ matrix.release_package_dir }}/*.dll
+          ${{ matrix.release_package_dir }}/platforms/
+          ${{ matrix.release_package_dir }}/imageformats/
+          ${{ matrix.release_package_dir }}/tls/
+          ${{ matrix.release_package_dir }}/translations/
+          ${{ matrix.release_package_dir }}/help/
+          ${{ matrix.release_package_dir }}/BUILD-INFO.txt
