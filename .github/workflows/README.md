@@ -9,6 +9,16 @@ This directory contains GitHub Actions workflows for automated building and test
 Main build workflow that runs on pushes and pull requests for the `stable` and
 `dev` branches, plus manual dispatches, published releases, and version tags.
 
+### build_msys2.yml
+
+Dedicated Windows MSYS2 comparison workflow that builds the db48x simulator in
+three toolchain variants: `MINGW64`, `UCRT64`, and `CLANG64`.
+
+- Runs on pushes to `stable`, `dev`, and `all_msys2`
+- Runs on pull requests targeting `stable` or `dev`
+- Supports manual dispatches from GitHub Actions
+- Uploads separate bundle artifacts for side-by-side archive comparison
+
 #### Jobs
 
 **Simulator Builds (db48x):**

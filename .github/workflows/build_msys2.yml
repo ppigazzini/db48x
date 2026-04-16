@@ -1,6 +1,10 @@
 name: Build MSYS2 Windows Archives
 
 on:
+  push:
+    branches: [ stable, dev, all_msys2 ]
+  pull_request:
+    branches: [ stable, dev ]
   workflow_dispatch:
 
 permissions:
