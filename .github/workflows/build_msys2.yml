@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   build-simulator-windows-msys2:
-    name: Build Simulator (${{ matrix.label }})
+    name: Build ${{ matrix.simulator_label }} (${{ matrix.label }})
     runs-on: windows-latest
     timeout-minutes: 120
     defaults:
@@ -31,6 +31,11 @@ jobs:
       matrix:
         include:
         - label: MSYS2 MINGW64 GCC
+          simulator_label: db48x
+          binary_name: db48x.exe
+          debug_target: debug-sim
+          release_target: release-sim
+          runtime_dll_patterns: libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll
           msystem: MINGW64
           tool_root: /mingw64
           debug_artifact_name: db48x-simulator-windows-mingw64
@@ -52,6 +57,11 @@ jobs:
             mingw-w64-x86_64-qt6-translations
             mingw-w64-x86_64-qt6-tools
         - label: MSYS2 UCRT64 GCC
+          simulator_label: db48x
+          binary_name: db48x.exe
+          debug_target: debug-sim
+          release_target: release-sim
+          runtime_dll_patterns: libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll
           msystem: UCRT64
           tool_root: /ucrt64
           debug_artifact_name: db48x-simulator-windows-ucrt64
@@ -73,6 +83,11 @@ jobs:
             mingw-w64-ucrt-x86_64-qt6-translations
             mingw-w64-ucrt-x86_64-qt6-tools
         - label: MSYS2 CLANG64
+          simulator_label: db48x
+          binary_name: db48x.exe
+          debug_target: debug-sim
+          release_target: release-sim
+          runtime_dll_patterns: libc++.dll libunwind.dll libwinpthread-1.dll
           msystem: CLANG64
           tool_root: /clang64
           debug_artifact_name: db48x-simulator-windows-clang64
@@ -86,7 +101,91 @@ jobs:
             mingw-w64-clang-x86_64-clang
             mingw-w64-clang-x86_64-compiler-rt
             mingw-w64-clang-x86_64-freetype
+            mingw-w64-clang-x86_64-libc++
             mingw-w64-clang-x86_64-libsystre
+            mingw-w64-clang-x86_64-libunwind
+            mingw-w64-clang-x86_64-lld
+            mingw-w64-clang-x86_64-make
+            mingw-w64-clang-x86_64-pkgconf
+            mingw-w64-clang-x86_64-qt6-base
+            mingw-w64-clang-x86_64-qt6-declarative
+            mingw-w64-clang-x86_64-qt6-multimedia
+            mingw-w64-clang-x86_64-qt6-translations
+            mingw-w64-clang-x86_64-qt6-tools
+        - label: MSYS2 MINGW64 GCC
+          simulator_label: db50x color
+          binary_name: db50x.exe
+          debug_target: debug-color-dm32-sim
+          release_target: release-color-dm32-sim
+          runtime_dll_patterns: libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll
+          msystem: MINGW64
+          tool_root: /mingw64
+          debug_artifact_name: db50x-color-simulator-windows-mingw64
+          debug_package_dir: dist/msys2/mingw64/db50x-color/debug
+          release_artifact_name: db50x-color-simulator-windows-mingw64-release
+          release_package_dir: dist/msys2/mingw64/db50x-color/release
+          qmake_specs: win32-g++
+          qmake_args: ''
+          packages: >-
+            git
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-make
+            mingw-w64-x86_64-freetype
+            mingw-w64-x86_64-pkg-config
+            mingw-w64-x86_64-libsystre
+            mingw-w64-x86_64-qt6-base
+            mingw-w64-x86_64-qt6-declarative
+            mingw-w64-x86_64-qt6-multimedia
+            mingw-w64-x86_64-qt6-translations
+            mingw-w64-x86_64-qt6-tools
+        - label: MSYS2 UCRT64 GCC
+          simulator_label: db50x color
+          binary_name: db50x.exe
+          debug_target: debug-color-dm32-sim
+          release_target: release-color-dm32-sim
+          runtime_dll_patterns: libgcc_s_seh-1.dll libstdc++-6.dll libwinpthread-1.dll
+          msystem: UCRT64
+          tool_root: /ucrt64
+          debug_artifact_name: db50x-color-simulator-windows-ucrt64
+          debug_package_dir: dist/msys2/ucrt64/db50x-color/debug
+          release_artifact_name: db50x-color-simulator-windows-ucrt64-release
+          release_package_dir: dist/msys2/ucrt64/db50x-color/release
+          qmake_specs: win32-g++
+          qmake_args: ''
+          packages: >-
+            git
+            mingw-w64-ucrt-x86_64-freetype
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-libsystre
+            mingw-w64-ucrt-x86_64-make
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-qt6-base
+            mingw-w64-ucrt-x86_64-qt6-declarative
+            mingw-w64-ucrt-x86_64-qt6-multimedia
+            mingw-w64-ucrt-x86_64-qt6-translations
+            mingw-w64-ucrt-x86_64-qt6-tools
+        - label: MSYS2 CLANG64
+          simulator_label: db50x color
+          binary_name: db50x.exe
+          debug_target: debug-color-dm32-sim
+          release_target: release-color-dm32-sim
+          runtime_dll_patterns: libc++.dll libunwind.dll libwinpthread-1.dll
+          msystem: CLANG64
+          tool_root: /clang64
+          debug_artifact_name: db50x-color-simulator-windows-clang64
+          debug_package_dir: dist/msys2/clang64/db50x-color/debug
+          release_artifact_name: db50x-color-simulator-windows-clang64-release
+          release_package_dir: dist/msys2/clang64/db50x-color/release
+          qmake_specs: win32-clang-g++
+          qmake_args: QMAKE_CC=clang QMAKE_CXX=clang++ QMAKE_LINK=clang++ QMAKE_LFLAGS+=-fuse-ld=lld
+          packages: >-
+            git
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-compiler-rt
+            mingw-w64-clang-x86_64-freetype
+            mingw-w64-clang-x86_64-libc++
+            mingw-w64-clang-x86_64-libsystre
+            mingw-w64-clang-x86_64-libunwind
             mingw-w64-clang-x86_64-lld
             mingw-w64-clang-x86_64-make
             mingw-w64-clang-x86_64-pkgconf
@@ -127,8 +226,10 @@ jobs:
         mingw32-make --version
         qmake6 --version || qmake --version
 
-    - name: Build debug simulator
+    - name: Build debug binary
       env:
+        BINARY_NAME: ${{ matrix.binary_name }}
+        BUILD_TARGET: ${{ matrix.debug_target }}
         QMAKE_SPECS: ${{ matrix.qmake_specs }}
         QMAKE_ARGS: ${{ matrix.qmake_args }}
       run: |
@@ -140,35 +241,58 @@ jobs:
         printf 'Using %s build jobs\n' "$build_jobs"
 
         if [[ -n "$QMAKE_ARGS" ]]; then
-          mingw32-make -j"$build_jobs" debug-sim \
+          mingw32-make -j"$build_jobs" "$BUILD_TARGET" \
             QMAKE_SPECS="$QMAKE_SPECS" \
             QMAKE_ARGS="$QMAKE_ARGS"
         else
-          mingw32-make -j"$build_jobs" debug-sim \
+          mingw32-make -j"$build_jobs" "$BUILD_TARGET" \
             QMAKE_SPECS="$QMAKE_SPECS"
         fi
 
-        test -f db48x.exe
-        ls -l db48x.exe
+        test -f "$BINARY_NAME"
+        ls -l "$BINARY_NAME"
 
     - name: Package debug bundle
       env:
+        BINARY_NAME: ${{ matrix.binary_name }}
         BUILD_LABEL: ${{ matrix.label }}
         BUILD_KIND: debug
+        BUILD_TARGET: ${{ matrix.debug_target }}
         PACKAGE_DIR: ${{ matrix.debug_package_dir }}
+        RUNTIME_DLL_PATTERNS: ${{ matrix.runtime_dll_patterns }}
+        SIMULATOR_LABEL: ${{ matrix.simulator_label }}
         TOOL_ROOT: ${{ matrix.tool_root }}
       run: |
+        copy_runtime_dlls()
+        {
+          local pattern=''
+          local dll=''
+          local found=0
+
+          shopt -s nullglob
+          for pattern in $RUNTIME_DLL_PATTERNS; do
+            found=0
+            for dll in "$TOOL_ROOT"/bin/$pattern; do
+              cp "$dll" "$package_dir/"
+              found=1
+            done
+            if [[ "$found" -eq 0 ]]; then
+              echo "Missing runtime DLL pattern: $pattern" >&2
+              exit 1
+            fi
+          done
+          shopt -u nullglob
+        }
+
         package_dir="$PWD/$PACKAGE_DIR"
         rm -rf "$package_dir"
         mkdir -p "$package_dir"
 
-        cp db48x.exe "$package_dir/"
+        cp "$BINARY_NAME" "$package_dir/"
         cp -r help "$package_dir/"
-        windeployqt6 "$package_dir/db48x.exe"
-        # Copy MinGW runtime and MSYS2 dependencies.
-        cp "$TOOL_ROOT/bin/libgcc_s_seh-1.dll" "$package_dir/"
-        cp "$TOOL_ROOT/bin/libstdc++-6.dll" "$package_dir/"
-        cp "$TOOL_ROOT/bin/libwinpthread-1.dll" "$package_dir/"
+        windeployqt6 "$package_dir/$BINARY_NAME"
+        # Copy toolchain runtime DLLs.
+        copy_runtime_dlls
         cp "$TOOL_ROOT/bin/libsystre-0.dll" "$package_dir/"
         cp "$TOOL_ROOT/bin/libtre-5.dll" "$package_dir/"
         cp "$TOOL_ROOT/bin/libintl-8.dll" "$package_dir/"
@@ -197,10 +321,14 @@ jobs:
           printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
           printf 'ref=%s\n' "$GITHUB_REF"
           printf 'sha=%s\n' "$GITHUB_SHA"
+          printf 'simulator=%s\n' "$SIMULATOR_LABEL"
+          printf 'binary_name=%s\n' "$BINARY_NAME"
           printf 'msystem=%s\n' "$MSYSTEM"
           printf 'tool_root=%s\n' "$TOOL_ROOT"
+          printf 'runtime_dll_patterns=%s\n' "$RUNTIME_DLL_PATTERNS"
           printf 'label=%s\n' "$BUILD_LABEL"
           printf 'build_kind=%s\n' "$BUILD_KIND"
+          printf 'build_target=%s\n' "$BUILD_TARGET"
           printf 'qmake_specs=%s\n' '${{ matrix.qmake_specs }}'
           printf 'qmake_args=%s\n' '${{ matrix.qmake_args }}'
           printf '\n[toolchain]\n'
@@ -211,8 +339,10 @@ jobs:
 
         find "$package_dir" -maxdepth 3 -type f | sort
 
-    - name: Build release simulator
+    - name: Build release binary
       env:
+        BINARY_NAME: ${{ matrix.binary_name }}
+        BUILD_TARGET: ${{ matrix.release_target }}
         QMAKE_SPECS: ${{ matrix.qmake_specs }}
         QMAKE_ARGS: ${{ matrix.qmake_args }}
       run: |
@@ -223,19 +353,20 @@ jobs:
         printf 'Using %s build jobs\n' "$build_jobs"
 
         if [[ -n "$QMAKE_ARGS" ]]; then
-          mingw32-make -j"$build_jobs" release-sim \
+          mingw32-make -j"$build_jobs" "$BUILD_TARGET" \
             QMAKE_SPECS="$QMAKE_SPECS" \
             QMAKE_ARGS="$QMAKE_ARGS"
         else
-          mingw32-make -j"$build_jobs" release-sim \
+          mingw32-make -j"$build_jobs" "$BUILD_TARGET" \
             QMAKE_SPECS="$QMAKE_SPECS"
         fi
 
-        test -f db48x.exe
-        ls -l db48x.exe
+        test -f "$BINARY_NAME"
+        ls -l "$BINARY_NAME"
 
     - name: Strip release executable
       env:
+        BINARY_NAME: ${{ matrix.binary_name }}
         TOOL_ROOT: ${{ matrix.tool_root }}
       run: |
         strip_tool=''
@@ -253,27 +384,50 @@ jobs:
         [[ -n "$strip_tool" ]] || { echo 'No strip tool found' >&2; exit 1; }
 
         printf 'Using strip tool: %s\n' "$strip_tool"
-        "$strip_tool" db48x.exe
-        ls -l db48x.exe
+        "$strip_tool" "$BINARY_NAME"
+        ls -l "$BINARY_NAME"
 
     - name: Package release bundle
       env:
+        BINARY_NAME: ${{ matrix.binary_name }}
         BUILD_LABEL: ${{ matrix.label }}
         BUILD_KIND: release
+        BUILD_TARGET: ${{ matrix.release_target }}
         PACKAGE_DIR: ${{ matrix.release_package_dir }}
+        RUNTIME_DLL_PATTERNS: ${{ matrix.runtime_dll_patterns }}
+        SIMULATOR_LABEL: ${{ matrix.simulator_label }}
         TOOL_ROOT: ${{ matrix.tool_root }}
       run: |
+        copy_runtime_dlls()
+        {
+          local pattern=''
+          local dll=''
+          local found=0
+
+          shopt -s nullglob
+          for pattern in $RUNTIME_DLL_PATTERNS; do
+            found=0
+            for dll in "$TOOL_ROOT"/bin/$pattern; do
+              cp "$dll" "$package_dir/"
+              found=1
+            done
+            if [[ "$found" -eq 0 ]]; then
+              echo "Missing runtime DLL pattern: $pattern" >&2
+              exit 1
+            fi
+          done
+          shopt -u nullglob
+        }
+
         package_dir="$PWD/$PACKAGE_DIR"
         rm -rf "$package_dir"
         mkdir -p "$package_dir"
 
-        cp db48x.exe "$package_dir/"
+        cp "$BINARY_NAME" "$package_dir/"
         cp -r help "$package_dir/"
-        windeployqt6 "$package_dir/db48x.exe"
-        # Copy MinGW runtime and MSYS2 dependencies.
-        cp "$TOOL_ROOT/bin/libgcc_s_seh-1.dll" "$package_dir/"
-        cp "$TOOL_ROOT/bin/libstdc++-6.dll" "$package_dir/"
-        cp "$TOOL_ROOT/bin/libwinpthread-1.dll" "$package_dir/"
+        windeployqt6 "$package_dir/$BINARY_NAME"
+        # Copy toolchain runtime DLLs.
+        copy_runtime_dlls
         cp "$TOOL_ROOT/bin/libsystre-0.dll" "$package_dir/"
         cp "$TOOL_ROOT/bin/libtre-5.dll" "$package_dir/"
         cp "$TOOL_ROOT/bin/libintl-8.dll" "$package_dir/"
@@ -302,10 +456,14 @@ jobs:
           printf 'workflow=%s\n' "$GITHUB_WORKFLOW"
           printf 'ref=%s\n' "$GITHUB_REF"
           printf 'sha=%s\n' "$GITHUB_SHA"
+          printf 'simulator=%s\n' "$SIMULATOR_LABEL"
+          printf 'binary_name=%s\n' "$BINARY_NAME"
           printf 'msystem=%s\n' "$MSYSTEM"
           printf 'tool_root=%s\n' "$TOOL_ROOT"
+          printf 'runtime_dll_patterns=%s\n' "$RUNTIME_DLL_PATTERNS"
           printf 'label=%s\n' "$BUILD_LABEL"
           printf 'build_kind=%s\n' "$BUILD_KIND"
+          printf 'build_target=%s\n' "$BUILD_TARGET"
           printf 'qmake_specs=%s\n' '${{ matrix.qmake_specs }}'
           printf 'qmake_args=%s\n' '${{ matrix.qmake_args }}'
           printf '\n[toolchain]\n'
@@ -320,7 +478,7 @@ jobs:
       if: ${{ env.WINDOWS_CERT_DATA != '' }}
       uses: lando/code-sign-action@v3
       with:
-        file: ${{ matrix.debug_package_dir }}/db48x.exe
+        file: ${{ matrix.debug_package_dir }}/${{ matrix.binary_name }}
         certificate-data: ${{ secrets.WINDOWS_CERT_DATA }}
         certificate-password: ${{ secrets.WINDOWS_CERT_PASSWORD }}
 
@@ -328,7 +486,7 @@ jobs:
       if: ${{ env.WINDOWS_CERT_DATA != '' }}
       uses: lando/code-sign-action@v3
       with:
-        file: ${{ matrix.release_package_dir }}/db48x.exe
+        file: ${{ matrix.release_package_dir }}/${{ matrix.binary_name }}
         certificate-data: ${{ secrets.WINDOWS_CERT_DATA }}
         certificate-password: ${{ secrets.WINDOWS_CERT_PASSWORD }}
 
@@ -338,7 +496,7 @@ jobs:
         name: ${{ matrix.debug_artifact_name }}
         if-no-files-found: error
         path: |
-          ${{ matrix.debug_package_dir }}/db48x.exe
+          ${{ matrix.debug_package_dir }}/${{ matrix.binary_name }}
           ${{ matrix.debug_package_dir }}/*.dll
           ${{ matrix.debug_package_dir }}/platforms/
           ${{ matrix.debug_package_dir }}/imageformats/
@@ -353,7 +511,7 @@ jobs:
         name: ${{ matrix.release_artifact_name }}
         if-no-files-found: error
         path: |
-          ${{ matrix.release_package_dir }}/db48x.exe
+          ${{ matrix.release_package_dir }}/${{ matrix.binary_name }}
           ${{ matrix.release_package_dir }}/*.dll
           ${{ matrix.release_package_dir }}/platforms/
           ${{ matrix.release_package_dir }}/imageformats/

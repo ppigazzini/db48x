@@ -11,13 +11,14 @@ Main build workflow that runs on pushes and pull requests for the `stable` and
 
 ### build_msys2.yml
 
-Dedicated Windows MSYS2 comparison workflow that builds the db48x simulator in
-three toolchain variants: `MINGW64`, `UCRT64`, and `CLANG64`.
+Dedicated Windows MSYS2 comparison workflow that builds both the db48x
+simulator and the db50x color simulator in three toolchain variants:
+`MINGW64`, `UCRT64`, and `CLANG64`.
 
 - Runs on pushes to `stable`, `dev`, and `all_msys2`
 - Runs on pull requests targeting `stable` or `dev`
 - Supports manual dispatches from GitHub Actions
-- Builds both debug and release simulator bundles for each toolchain
+- Builds both debug and release bundles for db48x and db50x color on each toolchain
 - Strips the release executable before packaging the release bundle
 - Uploads separate debug and release bundle artifacts for side-by-side archive comparison
 
