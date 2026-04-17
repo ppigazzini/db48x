@@ -863,6 +863,8 @@ struct blitter
             BIT_SIZE = sizeof(bits) * 8
         };
         shift %= BIT_SIZE;
+        if (!shift)
+            return bits;
         bits = ((bits >> shift) | (bits << (BIT_SIZE - shift)));
         return bits;
     }
