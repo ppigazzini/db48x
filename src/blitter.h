@@ -1091,45 +1091,64 @@ union blitter::color<blitter::mode::RGB_16BPP>
 //  Color representation (16-bit, e.g. HP Prime)
 // ------------------------------------------------------------------------
 {
-    struct rgb16
-    {
-        rgb16(uint8_t red, uint8_t green, uint8_t blue)
-            : blue(blue),
-              green(green),
-              red(red)
-        {
-        }
-        uint8_t blue  : 5;
-        uint8_t green : 6;
-        uint8_t red   : 5;
-    } PACKED rgb16;
-    uint16_t value : 16;
+    uint16_t value;
 
     enum
     {
-        BPP = 16
+        BPP         = 16,
+        RED_SHIFT   = 11,
+        GREEN_SHIFT = 5,
+        BLUE_SHIFT  = 0,
+        RED_MASK    = 0xF800,
+        GREEN_MASK  = 0x07E0,
+        BLUE_MASK   = 0x001F
     };
 
   public:
     // Build a color from normalized RGB values
-    color(uint8_t red, uint8_t green, uint8_t blue)
-        : rgb16(red >> 3, green >> 2, blue >> 3)
+    // Avoid packed bitfields here: their layout is implementation-defined
+    // and varies across compilers on Windows.
+    constexpr color(uint8_t red, uint8_t green, uint8_t blue)
+        : value(uint16_t(((red & 0xF8) << 8) |
+                         ((green & 0xFC) << 3) |
+                         ((blue & 0xF8) >> 3)))
     {}
-    color(pixword pix): value(pix & 0xFFFF) {}
+    constexpr color(pixword pix): value(pix & 0xFFFF) {}
 
-    uint8_t red()
+    constexpr uint8_t red()
     {
-        return (rgb16.red << 3) | (rgb16.red & 0x7);
+        uint8_t bits = (value & RED_MASK) >> RED_SHIFT;
+        return (bits << 3) | (bits >> 2);
     }
-    uint8_t green()
+    constexpr uint8_t green()
     {
-        return (rgb16.green << 2) | (rgb16.green & 0x3);
+        uint8_t bits = (value & GREEN_MASK) >> GREEN_SHIFT;
+        return (bits << 2) | (bits >> 4);
     }
-    uint8_t blue()
+    constexpr uint8_t blue()
     {
-        return (rgb16.blue << 3) | (rgb16.blue & 0x7);
+        uint8_t bits = (value & BLUE_MASK) >> BLUE_SHIFT;
+        return (bits << 3) | (bits >> 2);
     }
 } PACKED;
+
+static_assert(sizeof(blitter::color<blitter::mode::RGB_16BPP>) == 2,
+              "RGB565 colors must remain 16-bit");
+static_assert(blitter::color<blitter::mode::RGB_16BPP>(255, 0, 0).value ==
+              0xF800,
+              "RGB565 red encoding regression");
+static_assert(blitter::color<blitter::mode::RGB_16BPP>(0, 255, 0).value ==
+              0x07E0,
+              "RGB565 green encoding regression");
+static_assert(blitter::color<blitter::mode::RGB_16BPP>(0, 0, 255).value ==
+              0x001F,
+              "RGB565 blue encoding regression");
+static_assert(blitter::color<blitter::mode::RGB_16BPP>(0xF800).red() == 255,
+              "RGB565 red decoding regression");
+static_assert(blitter::color<blitter::mode::RGB_16BPP>(0x07E0).green() == 255,
+              "RGB565 green decoding regression");
+static_assert(blitter::color<blitter::mode::RGB_16BPP>(0x001F).blue() == 255,
+              "RGB565 blue decoding regression");
 
 
 // ============================================================================
