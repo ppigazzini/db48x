@@ -44,6 +44,7 @@
 #include "user_interface.h"
 #include "variables.h"
 
+#include <cstddef>
 #include <cstdarg>
 #include <cstdlib>
 #include <random>
@@ -52,6 +53,18 @@
 
 RECORDER(settings,              16, "Settings");
 RECORDER(settings_error,        16, "Errors during settings");
+
+template <typename T>
+static uint settings_hash_mix(uint hash, T value)
+// ----------------------------------------------------------------------------
+//   Mix one settings field into a stable hash without reading struct padding
+// ----------------------------------------------------------------------------
+{
+    ularge raw = ularge(value);
+    for (size_t i = 0; i < sizeof(value); i++)
+        hash = 0x1081 * hash ^ uint((raw >> (i * 8)) & 0xFF);
+    return hash;
+}
 
 settings::settings() :
 // ----------------------------------------------------------------------------
@@ -86,10 +99,18 @@ uint settings::hash() const
 //   Compute a hash of the settings to see if value changed
 // ----------------------------------------------------------------------------
 {
-    uint   result = 0;
-    byte_p ptr    = byte_p(this);
-    for (uint i = 0; i < sizeof(*this); i++)
-        result = 0x1081 * result ^ ptr[i];
+    uint result = 0;
+
+#define ID(id)
+#define FLAG(Enable, Disable)                                           \
+    result = settings_hash_mix(result, Enable##_bit);
+#define SETTING(Name, Low, High, Init)                                  \
+    result = settings_hash_mix(result, Name##_bits);
+#define SETTING_BITS(Name, Type, Bits, Low, High, Init)                 \
+    result = settings_hash_mix(result, Name##_bits);
+#include "ids.tbl"
+
+    result = settings_hash_mix(result, reserved);
     return result;
 }
 

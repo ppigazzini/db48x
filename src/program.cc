@@ -324,10 +324,11 @@ uint program::read_time()
     tm_t time;
     rtc_read(&time, &date);
     int jd = julian_day(&date);
-    ticks = ((time.sec +
-             time.min * 60 +
-             time.hour * 3600 +
-              jd * 86400) * 100 + time.csec) * 10;
+    ularge seconds = ularge(time.sec) +
+                     ularge(time.min) * 60 +
+                     ularge(time.hour) * 3600 +
+                     ularge(jd) * 86400;
+    ticks = uint((seconds * 100 + ularge(time.csec)) * 10);
     return ticks;
 }
 

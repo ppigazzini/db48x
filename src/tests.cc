@@ -8049,7 +8049,8 @@ void tests::constants_parsing()
         }
         if (!ok)
         {
-            test(cst[i+1]);
+            if (cst[i+1])
+                test(cst[i+1]);
             break;
         }
     }
@@ -8079,7 +8080,8 @@ void tests::eqnlib_parsing()
         }
         if (!ok)
         {
-            test(eq[i+1]);
+            if (eq[i+1])
+                test(eq[i+1]);
             break;
         }
     }

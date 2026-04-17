@@ -186,8 +186,10 @@ struct font_cache
                         std::swap(*d, *last);
                     return last;
                 }
-                if (d-- < cache)
+                if (d == cache)
                     d = cache + count - 1;
+                else
+                    --d;
             }
         }
         return nullptr;

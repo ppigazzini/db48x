@@ -391,7 +391,7 @@ void program_init()
     // Give 4K bytes to the runtime to stress-test the GC
     size_t size = 1024 * memory_size;
 #endif
-    byte *memory = (byte *) malloc(size);
+    byte *memory = (byte *) calloc(size, 1);
     rt.memory(memory, size);
 
     // Check if we have a state file to load
